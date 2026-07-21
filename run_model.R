@@ -24,14 +24,6 @@
 # ============================================================
 
 # ============================================================
-# Set up analysis
-# ============================================================
-rm(list = ls(all = TRUE))
-
-# Set your own working directory
-setwd("C:/Users/your_name/your_project_folder")
-
-# ============================================================
 # Packages
 # ============================================================
 library(dplyr)
@@ -99,7 +91,7 @@ change_type <- "Pct"
 # ============================================================
 
 # ---- Import RCAT data ----
-rcat_hucs <- read.csv("GYE_HUC12s_RCAT_vbsstreams_ExportTable.csv")
+rcat_hucs <- read.csv("data/wy_huc12s_rcat.csv")
 
 # ---- Calculate area-weighted watershed averages ----
 # Larger valley-bottom polygons contribute proportionally more
@@ -156,14 +148,15 @@ rcat <- rcat %>%
 
 
 # ---- Export RCAT summaries ----
-write.csv(rcat, "RCAT_HUC12_weightedaverages.csv", row.names = FALSE)
+dir.create("outputs", showWarnings = FALSE, recursive = TRUE)
+write.csv(rcat, "outputs/RCAT_HUC12_weightedaverages.csv", row.names = FALSE)
 
 # ============================================================
 # B. BRAT beaver restoration potential
 # ============================================================
 
 # ---- Import BRAT data ----
-brat <- read.csv("GYE_HUC12s_BRATintersect_ExportTable.csv")
+brat <- read.csv("data/wy_huc12s_brat.csv")
 
 # ---- Assign numeric scores to BRAT restoration categories ----
 # Higher values indicate higher immediate beaver restoration potential.
@@ -195,15 +188,15 @@ beaver_potential <- beaver_potential %>%
   )
 
 # ---- Export BRAT summaries ----
-write.csv(beaver_potential, "BRAT_HUC12_scores.csv", row.names = FALSE)
+write.csv(beaver_potential, "outputs/BRAT_HUC12_scores.csv", row.names = FALSE)
 
 # ============================================================
 # C. Climate exposure index from PCA
 # ============================================================
 
 # ---- Import climate data ----
-sfm <- read.csv("stream_flow_summary_stats.csv")
-temp <- read.csv("summer_stream_temp_stats.csv")
+sfm <- read.csv("data/wy_huc12s_flowmet.csv")
+temp <- read.csv("data/wy_huc12s_norwest.csv")
 
 # ---- Merge stream flow and temperature data ----
 climate_raw <- sfm %>%
@@ -415,7 +408,7 @@ print(least_exposed)
 # ---- Export climate results ----
 write.csv(
   climate,
-  paste0("climate_exposure_index_", time_period, "_", change_type, ".csv"),
+  paste0("outputs/climate_exposure_index_", time_period, "_", change_type, ".csv"),
   row.names = FALSE
 )
 
@@ -574,4 +567,15 @@ print(rad_summary)
 # - whether category means align with expectations
 
 # ---- Export final RAD table ----
-write.csv(final_df, "RAD_management_strategies.csv", row.names = FALSE)
+write.csv(final_df, "outputs/WY_RAD_management_strategies.csv", row.names = FALSE)
+
+# Join back to huc12s geometry
+final_sf <- final_df %>%
+  mutate(watershed_id = as.character(watershed_id)) %>%
+  left_join(
+    wy_huc12s %>% select(id, geometry),
+    by = c("watershed_id" = "id")
+  )
+
+# Export final RAD geopackage
+st_write(final_sf, "outputs/WY_RAD_management_strategies.gpkg", row.names = FALSE)

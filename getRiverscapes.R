@@ -41,7 +41,7 @@ project_configs <- list(
     output_cols = c("Area", "LUI", "FloodplainAccess", "RiparianDeparture", "Condition")
   ),
   brat = list(
-    project_type_id = "brat",
+    project_type_id = "riverscapes_brat",
     gpkg_path = "outputs/brat.gpkg",
     layer = "vwDgos",
     prepare = function(df) {
@@ -158,14 +158,15 @@ getRiverscapes <- function(huc12, project_type, download_dir = tempdir()) {
   
   cli_progress_step("Reading, preparing, and joining to HUC12s")
   result <- future_map(names(gpkgs), function(huc) {
-    gpkg <- gpkgs[[huc]]
-    huc12_sub <- huc12[substr(huc12$huc12, 1, 10) == huc, ]
+      gpkg <- gpkgs[[huc]]
+      huc12_sub <- huc12[substr(huc12$huc12, 1, 10) == huc, ]
+      
+      raw <- st_read(gpkg, layer = config$layer, quiet = TRUE)
+      prepared <- config$prepare(raw) |> st_make_valid()
+      st_join(prepared, st_transform(st_make_valid(huc12_sub), st_crs(prepared)), join = st_intersects) |>
+        st_drop_geometry() |>
+        select(huc12, all_of(config$output_cols))
+    }, .options = furrr_options(seed = TRUE))|>
     
-    raw <- st_read(gpkg, layer = config$layer, quiet = TRUE)
-    prepared <- config$prepare(raw) |> st_make_valid()
-    st_join(prepared, st_transform(st_make_valid(huc12_sub), st_crs(prepared)), join = st_intersects) |>
-      st_drop_geometry() |>
-      select(huc12, all_of(config$output_cols))
-  }, .options = furrr_options(seed = TRUE)) |>
     bind_rows()
 }

@@ -22,4 +22,4 @@ To set up your token:
 
 ## Get Data
 
-To get the required data run the get_data_run.R file. To see a function's description and arguments run ?function_name_here.
+To get the required data run the get_data.R file.
