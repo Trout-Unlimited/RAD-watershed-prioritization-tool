@@ -22,9 +22,9 @@ wy_flow <- getFlowmet(huc12 = wy_huc12s)
 wy_norwest <- getNorwest(huc12 = wy_huc12s)
 
 # Write to csvs
-write.csv(wy_rcat, "data/wy_huc12s_rcat.csv", row.names = FALSE)
-write.csv(wy_brat, "data/wy_huc12s_brat.csv", row.names = FALSE)
-write.csv(wy_flow, "data/wy_huc12s_flowmet.csv", row.names = FALSE)
-write.csv(wy_norwest, "data/wy_huc12s_norwest.csv", row.names = FALSE)
+write.csv(wy_rcat, "data/WY_huc12s_rcat.csv", row.names = FALSE)
+write.csv(wy_brat, "data/WY_huc12s_brat.csv", row.names = FALSE)
+write.csv(wy_flow, "data/WY_huc12s_flowmet.csv", row.names = FALSE)
+write.csv(wy_norwest, "data/WY_huc12s_norwest.csv", row.names = FALSE)
 
 

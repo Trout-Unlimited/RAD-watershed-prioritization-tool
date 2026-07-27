@@ -9,7 +9,7 @@ source("packages.R")
 #'   c("WY", "MT")). If NULL, returns priority-water HUCs for every state.
 #'
 #' @return sf object of HUC10 priority waters
-getPWhuc10s <- function(states) {
+getPWhuc10s <- function(states = NULL) {
   
   prio <- arc_open("https://services1.arcgis.com/754BERmVIq3RqSf8/arcgis/rest/services/huc10s_PriorityWaters/FeatureServer/0")
   
@@ -19,5 +19,5 @@ getPWhuc10s <- function(states) {
     where_clause <- paste0("states IN (", paste(quoted_states, collapse = ", "), ")")
   }
   
-  suppressMessages(arc_select(prio, where = where_clause))
+  suppressMessages(arc_select(prio, where = where_clause)) |> st_make_valid()
 }

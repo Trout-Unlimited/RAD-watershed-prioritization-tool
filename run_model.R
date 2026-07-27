@@ -163,10 +163,13 @@ brat <- read.csv("data/wy_huc12s_brat.csv")
 # Users may need to adjust these lines depending on what management 
 # categories are used in the specific BRAT project
 category_scores <- c(
-  "Low Capacity Habitat" = 0,
-  "Mid Term: Process-based Riparian Vegetation Restor" = 1,
-  "Immediate: Potential Beaver Translocation" = 2,
-  "Immediate: Beaver Conservation" = 3
+  "Natural or Anthropogenic Limitations" = 0,        
+  "Conflict Management" = 1,                          
+  "Land Management Change" = 2,                      
+  "Potential Floodplain/Side Channel Opportunities" = 3, 
+  "Beaver Mimicry" = 4,                              
+  "Conservation/Appropriate for Translocation" = 5,  
+  "Encourage Beaver Expansion/Colonization" = 6     
 )
 
 # ---- Calculate stream-mile-weighted watershed scores ----
@@ -570,12 +573,13 @@ print(rad_summary)
 write.csv(final_df, "outputs/WY_RAD_management_strategies.csv", row.names = FALSE)
 
 # Join back to huc12s geometry
-final_sf <- final_df %>%
-  mutate(watershed_id = as.character(watershed_id)) %>%
+final_sf <- wy_huc12s %>%
+  select(id, geometry) %>%
+  mutate(id = as.character(id)) %>%
   left_join(
-    wy_huc12s %>% select(id, geometry),
-    by = c("watershed_id" = "id")
+    final_df %>% mutate(watershed_id = as.character(watershed_id)),
+    by = c("id" = "watershed_id")
   )
 
 # Export final RAD geopackage
-st_write(final_sf, "outputs/WY_RAD_management_strategies.gpkg", row.names = FALSE)
+st_write(final_sf, "outputs/WY_RAD_management_strategies_2040.gpkg", row.names = FALSE, append = FALSE)
