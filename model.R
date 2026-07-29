@@ -9,11 +9,6 @@
 # C. Climate exposure index from PCA
 # D. RAD classification and management strategies
 #
-# Users should:
-# 1. Set their own working directory
-# 2. Replace input file names if needed
-# 3. Check that required columns match their datasets
-#
 # Notes:
 # - RCAT scores are summarized to HUC12 using area-weighted averages
 # - BRAT scores are summarized to HUC12 using stream-mile-weighted averages
@@ -23,23 +18,13 @@
 # except CFM, which is always absolute change
 # ============================================================
 
-# ============================================================
-# Packages
-# ============================================================
-library(dplyr)
-library(purrr)
-library(tidyr)
-library(FactoMineR)
-library(factoextra)
-library(psych)
-library(corrplot)
-library(scales)
+source("packages.R")
 
 # ============================================================
 # Required input files and columns
 # ============================================================
 # 1. RCAT watershed table
-# File: GYE_HUC12s_RCAT_vbsstreams_ExportTable.csv
+# File: WY_huc12s_rcat.csv
 # Required columns:
 # - huc12
 # - Area
@@ -49,16 +34,16 @@ library(scales)
 # - Condition
 #
 # 2. BRAT watershed table
-# File: GYE_HUC12s_BRATintersect_ExportTable.csv
+# File: WY_huc12s_brat.csv
 # Required columns:
 # - huc12
 # - ConsVRest
 # - StreamMiles
 #
 # 3. Stream flow summary table
-# File: stream_flow_summary_stats2.csv
+# File: WY_huc12s_flowmet.csv
 # Required columns:
-# - HUC12
+# - huc12
 # - MA_flow_Pct_Chg_2040 / 2080
 # - MA_flow_Abs_Chg_2040 / 2080
 # - JJA_flow_Pct_Chg_2040 / 2080
@@ -68,31 +53,38 @@ library(scales)
 # - CFM_flow_Abs_Chg_2040 / 2080
 #
 # 4. Summer stream temperature table
-# File: summer_stream_temp_stats.csv
+# File: WY_huc12s_norwest.csv
 # Required columns:
-# - HUC12
+# - huc12
 # - st_Pct_Chg_2040 / 2080
 # - st_Abs_Chg_2040 / 2080
 
 # ============================================================
 # User options
 # ============================================================
-
 # ---- Climate time period ----
 # Choose "2040" or "2080"
-time_period <- "2080"
+time_period <- "2040"
 
 # ---- Climate change metric for non-CFM variables ----
 # Choose "Pct" or "Abs"
 change_type <- "Pct"
 
+# ---- Export ID ----
+id <- "WY"
+
+# ============================================================
+# Import Data
+# ============================================================
+rcat_hucs <- read.csv(file.path("inputs", paste0(id, "_huc12s_rcat.csv")))
+brat <- read.csv(file.path("inputs", paste0(id, "_huc12s_brat.csv")))
+sfm <- read.csv(file.path("inputs", paste0(id, "_huc12s_flowmet.csv")))
+temp <- read.csv(file.path("inputs", paste0(id, "_huc12s_norwest.csv")))
+huc12s <- st_read(file.path("inputs", paste0(id, "_huc12s.gpkg")))
+
 # ============================================================
 # A. RCAT watershed condition
 # ============================================================
-
-# ---- Import RCAT data ----
-rcat_hucs <- read.csv("data/wy_huc12s_rcat.csv")
-
 # ---- Calculate area-weighted watershed averages ----
 # Larger valley-bottom polygons contribute proportionally more
 # to the watershed-scale summary.
@@ -146,22 +138,15 @@ rcat <- rcat %>%
     VegDepPercentile = ecdf(weighted_vegdep)(weighted_vegdep)
   )
 
-
-# ---- Export RCAT summaries ----
-dir.create("outputs", showWarnings = FALSE, recursive = TRUE)
-write.csv(rcat, "outputs/RCAT_HUC12_weightedaverages.csv", row.names = FALSE)
-
 # ============================================================
 # B. BRAT beaver restoration potential
 # ============================================================
-
-# ---- Import BRAT data ----
-brat <- read.csv("data/wy_huc12s_brat.csv")
-
 # ---- Assign numeric scores to BRAT restoration categories ----
 # Higher values indicate higher immediate beaver restoration potential.
 # Users may need to adjust these lines depending on what management 
 # categories are used in the specific BRAT project
+unique(brat$ConsVRest)
+
 category_scores <- c(
   "Natural or Anthropogenic Limitations" = 0,        
   "Conflict Management" = 1,                          
@@ -190,20 +175,12 @@ beaver_potential <- beaver_potential %>%
     beaver_percentile = ecdf(restoration_potential)(restoration_potential)
   )
 
-# ---- Export BRAT summaries ----
-write.csv(beaver_potential, "outputs/BRAT_HUC12_scores.csv", row.names = FALSE)
-
 # ============================================================
 # C. Climate exposure index from PCA
 # ============================================================
-
-# ---- Import climate data ----
-sfm <- read.csv("data/wy_huc12s_flowmet.csv")
-temp <- read.csv("data/wy_huc12s_norwest.csv")
-
 # ---- Merge stream flow and temperature data ----
 climate_raw <- sfm %>%
-  left_join(temp, by = "HUC12")
+  left_join(temp, by = "huc12")
 
 # ---- Select the five variables used in the PCA ----
 # MA = mean annual flow
@@ -217,7 +194,7 @@ climate_raw <- sfm %>%
 # - CFM always uses absolute change in days
 climate_selected <- climate_raw %>%
   select(
-    HUC12,
+    huc12,
     MA = all_of(paste0("MA_flow_", change_type, "_Chg_", time_period)),
     JJA = all_of(paste0("JJA_flow_", change_type, "_Chg_", time_period)),
     HIQ1_5 = all_of(paste0("HIQ1_5_flow_", change_type, "_Chg_", time_period)),
@@ -297,11 +274,33 @@ fviz_eig(climate_pca, addlabels = TRUE)
 # - If PC2 also has eigenvalue > 1 and captures an additional climate signal
 # that is important to the study, then PC1 and PC2 can be combined
 
-
 # ---- Inspect loadings and variable contributions ----
 print(round(climate_pca$var$coord[, 1:2], 2))
 print(round(climate_pca$var$contrib[, 1:2], 2))
-fviz_pca_biplot(climate_pca, repel = TRUE)
+
+# ---- Build a data frame for plotting ----
+var_explained <- climate_pca$eig[, 2]
+
+# ---- Plot ----
+fviz_pca_biplot(
+  climate_pca,
+  geom.ind = "point",
+  pointsize = 1,
+  alpha.ind = 0.5,
+  addEllipses = TRUE,
+  ellipse.type = "confidence",
+  col.var = "red",
+  repel = TRUE,                     
+  label = "var",                  
+) +
+  labs(
+    x = paste0("PC1 (", round(var_explained[1], 1), "%)"),
+    y = paste0("PC2 (", round(var_explained[2], 1), "%)")
+)+
+  theme_minimal() +
+  theme(
+    panel.grid.minor = element_blank()
+  )
 
 # How to interpret loadings:
 # - Loadings show how strongly each variable is associated with each component
@@ -323,7 +322,7 @@ fviz_pca_biplot(climate_pca, repel = TRUE)
 
 # ---- Extract PCA scores ----
 climate <- as.data.frame(climate_pca$ind$coord)
-climate$huc12 <- climate_analysis$HUC12
+climate$huc12 <- climate_analysis$huc12
 
 # ============================================================
 # Option 1. Use PC1 only
@@ -372,9 +371,9 @@ climate$exposure_index <- climate$Dim.1
 # (climate$Dim.2 * (climate_pca$eig[2, 2] / 100))
 
 # Example: if PC1 should be reversed but PC2 should not
-# climate$exposure_index <-
-# (-climate$Dim.1 * (climate_pca$eig[1, 2] / 100)) +
-# ( climate$Dim.2 * (climate_pca$eig[2, 2] / 100))
+ climate$exposure_index <-
+ (-climate$Dim.1 * (climate_pca$eig[1, 2] / 100)) +
+ ( climate$Dim.2 * (climate_pca$eig[2, 2] / 100))
 
 # Example: if PC2 should be reversed but PC1 should not
 # climate$exposure_index <-
@@ -408,17 +407,9 @@ print(least_exposed)
 # - whether the score distribution looks reasonable
 # - whether the highest- and lowest-ranked watersheds make ecological sense
 
-# ---- Export climate results ----
-write.csv(
-  climate,
-  paste0("outputs/climate_exposure_index_", time_period, "_", change_type, ".csv"),
-  row.names = FALSE
-)
-
 # ============================================================
 # D. RAD classification and management strategies
 # ============================================================
-
 # ---- Merge watershed-scale datasets ----
 # Climate object uses huc12; RCAT and BRAT also use huc12.
 rad_input <- list(rcat, climate, beaver_potential) %>%
@@ -474,9 +465,7 @@ final_df <- final_df %>%
 # climate_category = case_when(
 # climate_scaled >= 75 ~ "High_Exposure",
 # climate_scaled >= 40 ~ "Moderate_Exposure",
-# TRUE ~ "Low_Exposure"
-# )
-# )
+# TRUE ~ "Low_Exposure"))
 
 # ---- Assign primary RAD strategy ----
 final_df <- final_df %>%
@@ -549,8 +538,6 @@ final_df <- final_df %>%
     )
   )
 
-
-
 # ---- Summarize results ----
 rad_summary <- final_df %>%
   group_by(rad_strategy) %>%
@@ -569,17 +556,105 @@ print(rad_summary)
 # is ecologically plausible
 # - whether category means align with expectations
 
-# ---- Export final RAD table ----
-write.csv(final_df, "outputs/WY_RAD_management_strategies.csv", row.names = FALSE)
-
-# Join back to huc12s geometry
-final_sf <- wy_huc12s %>%
-  select(id, geometry) %>%
+# ---- Join back to huc12s geometry ----
+final_sf <- huc12s %>%
+  select(id, geom) %>%
   mutate(id = as.character(id)) %>%
   left_join(
     final_df %>% mutate(watershed_id = as.character(watershed_id)),
     by = c("id" = "watershed_id")
   )
 
-# Export final RAD geopackage
-st_write(final_sf, "outputs/WY_RAD_management_strategies_2040.gpkg", row.names = FALSE, append = FALSE)
+# ---- Run hotspot analysis ----
+data <- final_sf %>%
+  filter(!is.na(climate_exposure))
+
+nb <- poly2nb(data, queen = TRUE)
+nb_self <- include.self(nb)
+lw <- nb2listw(nb_self, style = "B")
+gi_star <- localG(data$climate_exposure, lw)
+
+data <- data %>%
+  mutate(gi_star = as.numeric(gi_star))
+
+data <- data %>%
+  mutate(hotspot = case_when(
+    gi_star >= 2.58 ~ "Hotspot 99%",
+    gi_star >= 1.96 ~ "Hotspot 95%",
+    gi_star >= 1.65 ~ "Hotspot 90%",
+    gi_star <= -2.58 ~ "Coldspot 99%",
+    gi_star <= -1.96 ~ "Coldspot 95%",
+    gi_star <= -1.65 ~ "Coldspot 90%",
+    TRUE ~ "Not significant"
+  ))
+
+ggplot(data) +
+  geom_sf(aes(fill = hotspot), color = "white", linewidth = 0.1) +
+  scale_fill_manual(values = c(
+    "Hotspot 99%" = "#67000d", "Hotspot 95%" = "#cb181d", "Hotspot 90%" = "#fc9272",
+    "Not significant" = "grey90",
+    "Coldspot 90%" = "#9ecae1", "Coldspot 95%" = "#3182bd", "Coldspot 99%" = "#08306b"
+  )) +
+  theme_void()
+
+# ---- Plot results ----
+management_action_colors <- c(
+  "Conservation with beaver enhancement" = "#1b7837",  
+  "Conservation with potential beaver" = "#5aae61",
+  "Traditional conservation" = "#a6dba0",
+  "Assess beaver potential for conservation" = "#c7e9c0",
+  "Adaptation with beaver" = "#b35806",  
+  "Mixed adaptation" = "#e08214",
+  "Managed adaptation" = "#fdb863",
+  "Assess beaver potential for adaptation" = "#fee0b6",  
+  "Active beaver restoration" = "#2166ac",  
+  "Mixed restoration" = "#4393c3", 
+  "Alternative restoration" = "#92c5de", 
+  "Assess beaver potential for restoration" = "#d1e5f0",  
+  "Assess further" = "#bdbdbd"
+)
+
+management_action_order <- c(
+  "Conservation with beaver enhancement",
+  "Conservation with potential beaver",
+  "Traditional conservation",
+  "Assess beaver potential for conservation",
+  "Adaptation with beaver",
+  "Mixed adaptation",
+  "Managed adaptation",
+  "Assess beaver potential for adaptation",
+  "Active beaver restoration",
+  "Mixed restoration",
+  "Alternative restoration",
+  "Assess beaver potential for restoration",
+  "Assess further"
+)
+
+final_sf <- final_sf %>%
+  mutate(management_action = factor(management_action, levels = management_action_order))
+
+p <- ggplot(final_sf) +
+  geom_sf(aes(fill = management_action), color = NA) +
+  scale_fill_manual(
+    values = management_action_colors,
+    name = "Management Action",
+    na.value = "grey90"
+  ) +
+  labs(title = paste0(id, " RAD Management Strategies ", time_period, " ", change_type, " Change")) +
+  theme_void() +
+  theme(
+    legend.position = "right",
+    legend.text = element_text(size = 8),
+    legend.title = element_text(size = 10, face = "bold"),
+    plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
+    plot.background = element_rect(fill = "white", color = NA),
+    panel.background = element_rect(fill = "white", color = NA)
+  )
+
+p
+
+# Export final plot
+ggsave(file.path("outputs", paste0(id, "_RAD_management_strategies_", time_period, "_", change_type, ".png")), p)
+
+# Export final RAD output
+st_write(final_sf, file.path("outputs", paste0(id, "_RAD_management_strategies_", time_period, "_", change_type, ".gpkg")), delete_dsn = TRUE)

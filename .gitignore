@@ -1,6 +1,6 @@
 .Renviron
 .Rproj.user
 .Rhistory
-data/
 methods/
+inputs/
 outputs/

@@ -22,4 +22,4 @@ To set up your token:
 
 ## Get Data
 
-To get the required data run the get_data.R file.
+To get the required data run the get_inputs.R file. Once you have the inputs, go to model.R file to run the model.

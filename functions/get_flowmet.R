@@ -1,17 +1,7 @@
-# ============================================================================
-# --- Get FlowMet Data -------------------------------------------------------
-# ============================================================================
-source("utils.R")
-# ----------------------------------------------------------------------------
-#' Get modeled flow metrics aggregated to HUC12
-#'
-#' @param huc12 sf object of HUC12s
-#' @param data_dir character; local folder to store the downloaded .gdb.zip
-#'   files and their unzipped .gdb folders. Default "data/flowmet_gdb".
-#'
-#' @return a dataframe with one row per HUC12, with columns HUC12 and the
-#'   length-weighted average percent/absolute change flow metrics.
-getFlowmet <- function(huc12, data_dir = "data/flowmet_gdb") {
+# ============================================================
+# Get FlowMet Data
+# ============================================================
+get_flowmet <- function(huc12, data_dir = "inputs/flowmet_gdb") {
   
   dir.create(data_dir, recursive = TRUE, showWarnings = FALSE)
   
@@ -39,23 +29,24 @@ getFlowmet <- function(huc12, data_dir = "data/flowmet_gdb") {
       fields = c("comid", "ma_a2080", "mjja_a2080", "hiq1_5_a2080", "cfm_a2080")
     )
   )
-  
-  n_src <- length(gdb_sources)
-  layer_data <- imap(gdb_sources, function(src, i) {
+
+  message("Downloading/locating ", length(gdb_sources), " geodatabase(s)")
+  layer_data <- future_map(gdb_sources, function(src) {
     gdb_path <- .ensure_gdb(src$zip_url, data_dir)
     list(gdb_path = gdb_path, layer = src$layer, fields = src$fields)
-  })
+  }, .options = furrr_options(seed = TRUE))
   
   first <- layer_data[[1]]
-  cli_progress_step("Reading and pre-filtering layers")
-  base_sf <- .read_gdb_layer(first$gdb_path, first$layer, first$fields, bbox_4326, geometry = TRUE) |>
-    st_make_valid()
+  message("Reading and pre-filtering layers")
+  base_sf <- .read_gdb_layer(first$gdb_path, first$layer, first$fields, bbox_4326, geometry = TRUE)
+  invalid <- !st_is_valid(base_sf)
+  if (any(invalid)) base_sf[invalid, ] <- st_make_valid(base_sf[invalid, ])
   
-  rest_tables <- map(layer_data[-1], function(ld) {
+  rest_tables <- future_map(layer_data[-1], function(ld) {
     .read_gdb_layer(ld$gdb_path, ld$layer, ld$fields, bbox_4326, geometry = FALSE)
-  })
+  }, .options = furrr_options(seed = TRUE))
   
-  cli_progress_step("Joining flow metric layers by comid")
+  message("Joining flow metric layers by comid")
   flow_combined <- reduce(
     c(list(st_drop_geometry(base_sf)), rest_tables),
     left_join,
@@ -73,7 +64,7 @@ getFlowmet <- function(huc12, data_dir = "data/flowmet_gdb") {
     "hiq1_5_a2040", "hiq1_5_a2080", "cfm_a2040", "cfm_a2080"
   )
   
-  cli_progress_step(sprintf("Clipping and summarizing to HUC12s"))
+  message("Clipping and summarizing to HUC12s")
   .clip_and_summarize(
     lines_sf = flow_sf,
     polys_sf = huc12,
@@ -81,7 +72,6 @@ getFlowmet <- function(huc12, data_dir = "data/flowmet_gdb") {
     value_cols  = value_cols
   ) |>
     rename(
-      HUC12 = huc12,
       MA_flow_Pct_Chg_2040 = ma_p2040,
       MA_flow_Pct_Chg_2080 = ma_p2080,
       JJA_flow_Pct_Chg_2040 = mjja_p2040,

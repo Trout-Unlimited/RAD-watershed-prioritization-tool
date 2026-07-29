@@ -1,12 +1,16 @@
-# ============================================================================
-# --- Packages ---------------------------------------------------------------
-# ============================================================================
+# ============================================================
+# Packages
+# ============================================================
 library(sf)
-library(dplyr)
-library(purrr)
-library(furrr)
-library(nhdplusTools)
+library(tidyverse)
 library(arcgislayers)
+library(nhdplusTools)
+library(furrr)
 library(httr2)
-library(tibble)
-library(cli)
+library(FactoMineR)
+library(factoextra)
+library(psych)
+library(corrplot)
+library(scales)
+library(ggrepel)
+library(spdep)
