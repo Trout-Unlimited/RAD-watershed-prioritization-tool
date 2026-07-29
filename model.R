@@ -148,14 +148,14 @@ rcat <- rcat %>%
 unique(brat$ConsVRest)
 
 category_scores <- c(
-  "Natural or Anthropogenic Limitations" = 0,        
-  "Conflict Management" = 1,                          
-  "Land Management Change" = 2,                      
-  "Potential Floodplain/Side Channel Opportunities" = 3, 
-  "Beaver Mimicry" = 4,                              
-  "Conservation/Appropriate for Translocation" = 5,  
-  "Encourage Beaver Expansion/Colonization" = 6     
-)
+  "Beaver Mimicry" = ,                                 
+  "Encourage Beaver Expansion/Colonization" = ,        
+  "Conservation/Appropriate for Translocation" = ,     
+   "Natural or Anthropogenic Limitations" = ,           
+  "Conflict Management" = ,                            
+  "Potential Floodplain/Side Channel Opportunities" = ,
+  "Land Management Change" = 
+)   
 
 # ---- Calculate stream-mile-weighted watershed scores ----
 beaver_potential <- brat %>%
