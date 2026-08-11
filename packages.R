@@ -3,7 +3,6 @@
 # ============================================================
 library(sf)
 library(tidyverse)
-library(arcgislayers)
 library(nhdplusTools)
 library(furrr)
 library(httr2)
@@ -14,3 +13,4 @@ library(corrplot)
 library(scales)
 library(ggrepel)
 library(spdep)
+library(ggspatial)
