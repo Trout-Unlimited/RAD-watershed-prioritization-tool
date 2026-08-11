@@ -97,7 +97,7 @@ pca_vars <- c(
 # ============================================================
 # check priority water IDs
 names(data_list)
-id <- names(data_list)[4]
+id <- names(data_list)[1]
 
 result <- run_model(
   id, 
@@ -109,5 +109,3 @@ result <- run_model(
 )
 
 names(result)
-
-maplibre_view(result$final_sf$geom)
