@@ -152,18 +152,19 @@ get_riverscapes <- function(huc12, project_type, download_dir = tempdir()) {
   result <- future_map(names(gpkgs), function(huc) {
     gpkg <- gpkgs[[huc]]
     huc12_sub <- st_make_valid(huc12_split[[huc]])
-    
+
     raw <- st_read(gpkg, layer = config$layer, quiet = TRUE)
     prepared <- config$prepare(raw)
-    
+
     invalid <- !st_is_valid(prepared)
     if (any(invalid)) prepared[invalid, ] <- st_make_valid(prepared[invalid, ])
-    
+
     prepared <- prepared |> select(all_of(config$output_cols))
-    
+
     st_join(prepared, st_transform(huc12_sub, st_crs(prepared)), join = st_intersects) |>
       st_drop_geometry() |>
       select(huc12, all_of(config$output_cols))
   }, .options = furrr_options(seed = TRUE)) |>
-    bind_rows()
+    
+  bind_rows()
 }
