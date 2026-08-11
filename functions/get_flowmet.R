@@ -11,7 +11,7 @@ get_flowmet <- function(huc12, data_dir = "inputs/flowmet_gdb") {
     list(
       zip_url = "https://data.fs.usda.gov/geodata/edw/edw_resources/fc/S_USA.Hydro_FlowMet_2040sChgPct.gdb.zip",
       layer = "Hydro_FlowMet_2040sChgPct",
-      fields = c("comid", "ma_p2040", "mjja_p2040", "hiq1_5_p2040")
+      fields = c("comid", "ftype", "totdasqkm", "ma_p2040", "mjja_p2040", "hiq1_5_p2040")
     ),
     list(
       zip_url = "https://data.fs.usda.gov/geodata/edw/edw_resources/fc/S_USA.Hydro_FlowMet_2080sChgPct.gdb.zip",
@@ -29,7 +29,7 @@ get_flowmet <- function(huc12, data_dir = "inputs/flowmet_gdb") {
       fields = c("comid", "ma_a2080", "mjja_a2080", "hiq1_5_a2080", "cfm_a2080")
     )
   )
-
+  
   message("Downloading/locating ", length(gdb_sources), " geodatabase(s)")
   layer_data <- future_map(gdb_sources, function(src) {
     gdb_path <- .ensure_gdb(src$zip_url, data_dir)
@@ -56,6 +56,10 @@ get_flowmet <- function(huc12, data_dir = "inputs/flowmet_gdb") {
   flow_sf <- base_sf |>
     select("comid") |>
     left_join(flow_combined, by = "comid")
+  
+  message("Retaining only Stream/River segments and removing those with drainage areas >10,000km")
+  flow_sf <- flow_sf |>
+    filter(ftype == 460 & totdasqkm <= 10000)
   
   value_cols <- c(
     "ma_p2040", "ma_p2080", "mjja_p2040", "mjja_p2080",
